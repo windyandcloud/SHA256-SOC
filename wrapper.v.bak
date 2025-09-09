@@ -1,0 +1,115 @@
+module wrapper (
+	input iClk, 
+	input iReset_n,
+	input iChipSelect_n,
+	input iWrite_n,
+	input iRead_n,
+	input [4:0] iAddress,
+	input [31:0] iData,
+	output reg [31:0] oData
+	//output [255:0] outdata
+);
+	reg	[511:0] buffer;       // Tá»•ng 512-bit dá»¯ liá»‡u
+	reg	start_reg;
+	reg	[255:0] reg_result;
+	reg	reg_done;
+	
+	wire	[255:0] hash_out;
+	wire done;
+	
+	//assign outdata = hash_out;
+	// Module SHA core
+	
+	sha_core core (
+		.clk(iClk),
+		.clr(iReset_n),
+		.start(start_reg),
+		.message(buffer),
+		.hashvalue(hash_out),
+		.valid(done)
+	);
+	
+	always @(posedge iClk or negedge iReset_n) begin
+		if (!iReset_n) begin
+			reg_result	<= 256'd0;
+			reg_done		<= 1'b0;
+		end 
+		else 
+		begin
+			if (done) begin
+				reg_result <= hash_out;
+				reg_done <= 1'b1;
+			end
+			if(start_reg)
+				reg_done <= 1'b0;
+		end
+	end
+	
+	always @(posedge iClk or negedge iReset_n) begin
+		if (!iReset_n) begin
+			buffer		<= 512'd0;
+			oData 		<= 32'd0;
+			start_reg 	<= 1'b0;
+		end else begin
+			start_reg <= 1'b0;
+			if (~iChipSelect_n && ~iWrite_n) begin
+				case(iAddress)
+					5'd0:	buffer[31:0]		<= iData;
+					5'd1:	buffer[63:32]		<= iData;
+					5'd2: buffer[95:64]		<= iData;
+					5'd3: buffer[127:96]		<= iData;
+					5'd4: buffer[159:128]	<= iData;
+					5'd5: buffer[191:160]	<= iData;
+					5'd6: buffer[223:192]	<= iData;
+					5'd7: buffer[255:224]	<= iData;
+					5'd8: buffer[287:256]	<= iData;
+					5'd9: buffer[319:288]	<= iData;
+					5'd10: buffer[351:320]	<= iData;
+					5'd11: buffer[383:352]	<= iData;
+					5'd12: buffer[415:384]	<= iData;
+					5'd13: buffer[447:416]	<= iData;
+					5'd14: buffer[479:448]	<= iData;
+					5'd15: buffer[511:480]	<= iData;
+					5'd24: start_reg        <= iData[0];
+					
+					
+				endcase
+			end
+
+			if (~iChipSelect_n && ~iRead_n) begin
+				case (iAddress)
+				// Äá»c buffer (512-bit input)
+					5'd0: oData		<= buffer[31:0];
+					5'd1: oData		<= buffer[63:32];
+					5'd2: oData		<= buffer[95:64];
+					5'd3: oData		<= buffer[127:96];
+					5'd4: oData		<= buffer[159:128];
+					5'd5: oData		<= buffer[191:160];
+					5'd6: oData		<= buffer[223:192];
+					5'd7: oData		<= buffer[255:224];
+					5'd8: oData		<= buffer[287:256];
+					5'd9:	oData		<= buffer[319:288];
+					5'd10: oData	<= buffer[351:320];
+					5'd11: oData	<= buffer[383:352];
+					5'd12: oData	<= buffer[415:384];
+					5'd13: oData	<= buffer[447:416];
+					5'd14: oData	<= buffer[479:448];
+					5'd15: oData	<= buffer[511:480];
+					
+					// Äá»c hash_out (256-bit output)
+					5'd16: oData <= reg_result[31:0];
+					5'd17: oData <= reg_result[63:32];
+					5'd18: oData <= reg_result[95:64];
+					5'd19: oData <= reg_result[127:96];
+					5'd20: oData <= reg_result[159:128];
+					5'd21: oData <= reg_result[191:160];
+					5'd22: oData <= reg_result[223:192];
+					5'd23: oData <= reg_result[255:224];
+					5'd25: oData <= {31'b0, reg_done};
+					
+					default: oData <= 32'd0;
+				endcase
+			end
+		end
+	end
+endmodule
